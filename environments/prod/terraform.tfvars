@@ -3,7 +3,7 @@ rgs = {
     name     = "rg-chor-prod"
     location = "centralindia"
   }
-    rg2 = {
+  rg2 = {
     name     = "rg-bk-prod"
     location = "centralindia"
   }
