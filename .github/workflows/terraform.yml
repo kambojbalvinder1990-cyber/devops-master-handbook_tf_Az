@@ -1,4 +1,4 @@
-name: Terraform CI/CD
+name: Terraform CI/CD - DevSecOps
 
 on:
   pull_request:
@@ -25,15 +25,112 @@ permissions:
 
 env:
   TF_WORKING_DIR: environments/prod
+  TF_VERSION: 1.9.8
+
+
+# ============================================================
+# SECURITY SCAN
+# ============================================================
 
 jobs:
 
+  security-scan:
+    name: DevSecOps Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      # ========================================================
+      # GITLEAKS - SECRET SCANNING
+      # ========================================================
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+      # ========================================================
+      # SETUP TERRAFORM
+      # ========================================================
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+
+      # ========================================================
+      # TERRAFORM FORMAT
+      # ========================================================
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -recursive
+
+
+      # ========================================================
+      # TFLINT - TERRAFORM LINTING
+      # ========================================================
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v5
+        with:
+          tflint_version: latest
+
+      - name: Initialize TFLint
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: tflint --init
+
+      - name: Run TFLint
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: tflint --recursive
+
+
+      # ========================================================
+      # CHECKOV - IaC SECURITY SCAN
+      # ========================================================
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform
+          quiet: true
+          soft_fail: false
+
+
+      # ========================================================
+      # TRIVY - IaC SECURITY SCAN
+      # ========================================================
+
+      - name: Run Trivy IaC Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: 1
+          format: table
+
+
   # ============================================================
-  # TERRAFORM FORMAT & VALIDATE
+  # TERRAFORM VALIDATE
   # ============================================================
 
   terraform-check:
     name: Terraform Format and Validate
+    needs: security-scan
     runs-on: ubuntu-latest
 
     steps:
@@ -44,13 +141,13 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Format Check
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform fmt -check -recursive
 
-      - name: Terraform Init
+      - name: Terraform Init Without Backend
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -backend=false
 
@@ -76,10 +173,11 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: ${{ env.TF_VERSION }}
+
 
       # --------------------------------------------------------
-      # Azure Login using GitHub OIDC
+      # Azure OIDC Login
       # --------------------------------------------------------
 
       - name: Azure Login using OIDC
@@ -89,8 +187,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+
       # --------------------------------------------------------
-      # Terraform Backend Authentication
+      # Terraform Remote Backend
       # --------------------------------------------------------
 
       - name: Terraform Init
@@ -102,6 +201,7 @@ jobs:
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: terraform init -reconfigure
+
 
       # --------------------------------------------------------
       # Terraform Plan
@@ -126,7 +226,6 @@ jobs:
     name: Terraform Apply
     needs: terraform-plan
 
-    # Apply only after merge/push to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
@@ -142,10 +241,11 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: ${{ env.TF_VERSION }}
+
 
       # --------------------------------------------------------
-      # Azure Login using GitHub OIDC
+      # Azure OIDC Login
       # --------------------------------------------------------
 
       - name: Azure Login using OIDC
@@ -155,8 +255,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+
       # --------------------------------------------------------
-      # Terraform Backend Authentication
+      # Terraform Remote Backend
       # --------------------------------------------------------
 
       - name: Terraform Init
@@ -168,6 +269,7 @@ jobs:
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: terraform init -reconfigure
+
 
       # --------------------------------------------------------
       # Terraform Apply
