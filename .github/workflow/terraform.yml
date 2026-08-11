@@ -26,6 +26,10 @@ env:
 
 jobs:
 
+  # ============================================================
+  # TERRAFORM FORMAT & VALIDATION
+  # ============================================================
+
   terraform-check:
     name: Terraform Format and Validate
     runs-on: ubuntu-latest
@@ -46,12 +50,16 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
+        run: terraform init -backend=false
 
       - name: Terraform Validate
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
+
+  # ============================================================
+  # TERRAFORM PLAN
+  # ============================================================
 
   terraform-plan:
     name: Terraform Plan
@@ -68,6 +76,7 @@ jobs:
         with:
           terraform_version: 1.9.8
 
+      # Azure authentication using GitHub OIDC
       - name: Azure Login using OIDC
         uses: azure/login@v2
         with:
@@ -75,10 +84,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # Initialize Terraform with Azure remote backend
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          ARM_USE_OIDC: true
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: terraform init
 
+      # Create Terraform plan
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
@@ -89,10 +105,17 @@ jobs:
         run: terraform plan
 
 
+  # ============================================================
+  # TERRAFORM APPLY
+  # ============================================================
+
   terraform-apply:
     name: Terraform Apply
     needs: terraform-plan
+
+    # Apply ONLY after merge/push to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     runs-on: ubuntu-latest
 
     environment:
@@ -108,6 +131,7 @@ jobs:
         with:
           terraform_version: 1.9.8
 
+      # Azure authentication using GitHub OIDC
       - name: Azure Login using OIDC
         uses: azure/login@v2
         with:
@@ -115,10 +139,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # Initialize Terraform with remote backend
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          ARM_USE_OIDC: true
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: terraform init
 
+      # Apply Terraform configuration
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
