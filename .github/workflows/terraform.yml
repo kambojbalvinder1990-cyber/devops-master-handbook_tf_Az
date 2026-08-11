@@ -96,20 +96,6 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: tflint --recursive
 
-
-      # ========================================================
-      # CHECKOV - IaC SECURITY SCAN
-      # ========================================================
-
-      - name: Run Checkov
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          directory: .
-          framework: terraform
-          quiet: true
-          soft_fail: false
-
-
       # ========================================================
       # TRIVY - IaC SECURITY SCAN
       # ========================================================
