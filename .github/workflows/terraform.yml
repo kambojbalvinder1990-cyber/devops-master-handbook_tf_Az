@@ -7,6 +7,7 @@ on:
     paths:
       - "environments/prod/**"
       - "modules/**"
+      - ".github/workflows/terraform.yml"
 
   push:
     branches:
@@ -14,6 +15,7 @@ on:
     paths:
       - "environments/prod/**"
       - "modules/**"
+      - ".github/workflows/terraform.yml"
 
   workflow_dispatch:
 
@@ -27,7 +29,7 @@ env:
 jobs:
 
   # ============================================================
-  # TERRAFORM FORMAT & VALIDATION
+  # TERRAFORM FORMAT & VALIDATE
   # ============================================================
 
   terraform-check:
@@ -76,7 +78,10 @@ jobs:
         with:
           terraform_version: 1.9.8
 
-      # Azure authentication using GitHub OIDC
+      # --------------------------------------------------------
+      # Azure Login using GitHub OIDC
+      # --------------------------------------------------------
+
       - name: Azure Login using OIDC
         uses: azure/login@v2
         with:
@@ -84,21 +89,29 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Initialize Terraform with Azure remote backend
+      # --------------------------------------------------------
+      # Terraform Backend Authentication
+      # --------------------------------------------------------
+
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          ARM_USE_OIDC: true
+          ARM_USE_OIDC: "true"
+          ARM_USE_AZUREAD: "true"
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: terraform init
+        run: terraform init -reconfigure
 
-      # Create Terraform plan
+      # --------------------------------------------------------
+      # Terraform Plan
+      # --------------------------------------------------------
+
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          ARM_USE_OIDC: true
+          ARM_USE_OIDC: "true"
+          ARM_USE_AZUREAD: "true"
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -113,7 +126,7 @@ jobs:
     name: Terraform Apply
     needs: terraform-plan
 
-    # Apply ONLY after merge/push to main
+    # Apply only after merge/push to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
@@ -131,7 +144,10 @@ jobs:
         with:
           terraform_version: 1.9.8
 
-      # Azure authentication using GitHub OIDC
+      # --------------------------------------------------------
+      # Azure Login using GitHub OIDC
+      # --------------------------------------------------------
+
       - name: Azure Login using OIDC
         uses: azure/login@v2
         with:
@@ -139,21 +155,29 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Initialize Terraform with remote backend
+      # --------------------------------------------------------
+      # Terraform Backend Authentication
+      # --------------------------------------------------------
+
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          ARM_USE_OIDC: true
+          ARM_USE_OIDC: "true"
+          ARM_USE_AZUREAD: "true"
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: terraform init
+        run: terraform init -reconfigure
 
-      # Apply Terraform configuration
+      # --------------------------------------------------------
+      # Terraform Apply
+      # --------------------------------------------------------
+
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          ARM_USE_OIDC: true
+          ARM_USE_OIDC: "true"
+          ARM_USE_AZUREAD: "true"
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
