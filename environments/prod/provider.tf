@@ -1,10 +1,13 @@
 terraform {
+  required_version = ">= 1.9.0, < 2.0.0"
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "4.80.0"
+      version = "5.0.0"
     }
   }
+
   backend "azurerm" {
     use_azuread_auth     = true
     resource_group_name  = "git_rg"
@@ -13,6 +16,7 @@ terraform {
     key                  = "prod.terraform.tfstate"
   }
 }
+
 provider "azurerm" {
   features {}
 }
