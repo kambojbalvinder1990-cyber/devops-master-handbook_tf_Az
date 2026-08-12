@@ -4,7 +4,7 @@ rgs = {
     location = "centralindia"
   }
   rg2 = {
-    name     = "rg-bk-prod"
+    name     = "rg-bk-test"
     location = "centralindia"
   }
 }
